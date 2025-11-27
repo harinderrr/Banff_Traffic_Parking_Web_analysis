@@ -1,6 +1,6 @@
 """
-CMPT 3835 - Banff Traffic & Parking Prediction App with EDA
-Streamlit application with EDA, ML Modeling, and XAI features
+CMPT 3835 - Banff Traffic & Parking Prediction App with EDA + RAG Chatbot
+Streamlit application with EDA, ML Modeling, XAI, and RAG Chatbot features
 Group 11
 Date: November 25, 2025
 """
@@ -29,6 +29,15 @@ try:
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
+
+# RAG Chatbot imports
+try:
+    from transformers import pipeline
+    from sentence_transformers import SentenceTransformer, util
+    import torch
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
 
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from scipy import stats
@@ -70,12 +79,242 @@ st.markdown("""
         background-color: #1E3A8A;
         color: white;
     }
+    .chat-message {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .user-message {
+        background-color: #e3f2fd;
+        border-left: 4px solid #2196f3;
+    }
+    .bot-message {
+        background-color: #f1f8e9;
+        border-left: 4px solid #4caf50;
+    }
 </style>
 """, unsafe_allow_html=True)
 
+# ============================================================================
+# RAG CHATBOT FUNCTIONS
+# ============================================================================
+
+@st.cache_resource
+def load_rag_models():
+    """Load embedding model and LLM for RAG chatbot"""
+    if not RAG_AVAILABLE:
+        return None, None
+    
+    try:
+        embedder = SentenceTransformer('all-MiniLM-L6-v2')
+        generator = pipeline("text2text-generation", model="google/flan-t5-base")
+        return embedder, generator
+    except Exception as e:
+        st.error(f"Error loading RAG models: {str(e)}")
+        return None, None
+
+def create_banff_documents():
+    """Create searchable documents from Banff data"""
+    documents = {}
+    
+    # Document 1: General Banff parking info
+    documents["general_info"] = """
+    Banff National Park Parking and Traffic System:
+    This system monitors parking availability and traffic conditions across Banff National Park.
+    The park experiences high visitor volumes during peak tourism season (June-September).
+    Multiple parking facilities are available throughout the park at various locations including:
+    Fire Hall Lot West, Bear Street Lot, Central Park Lot, Clock Tower Lot, Railway Parking,
+    Bow Falls, Buffalo Street, and Banff Avenue parking areas.
+    Traffic is monitored across 7 major routes connecting key attractions.
+    """
+    
+    # Document 2: Parking statistics summary
+    documents["parking_stats"] = """
+    Parking Statistics (2025 Data):
+    - Total parking transactions recorded: 85,928
+    - Number of parking locations: 15+ major facilities
+    - Average parking duration: 120-180 minutes
+    - Peak parking hours: 10:00 AM - 1:00 PM (262 transactions per hour at peak)
+    - Weekend utilization is 15% higher than weekdays
+    - Most popular payment method: Digital payments (97% adoption - 53.2% bank cards, 43.7% mobile)
+    - Top location: Fire Hall Lot West with 4,650 transactions
+    - Revenue efficiency varies from 0.7 to 1.3 across locations
+    - Peak parking hour: 11:00 AM with 9,167 total transactions
+    """
+    
+    # Document 3: Traffic patterns summary
+    documents["traffic_stats"] = """
+    Traffic Statistics (2025 Analysis):
+    - Average traffic speed: 15.44 mph across all routes
+    - Monitored routes: Banff Springs to Downtown, Cave Avenue to Downtown, West Entrance to Downtown,
+      East Entrance from Downtown, Downtown to various destinations
+    - Traffic-parking correlation: Strong negative correlation (-0.55)
+    - Peak traffic flow: 11:00 AM when parking demand is highest (16.2 mph speed)
+    - Slowest routes: Routes 7 and 8 (Downtown to West Entrance) average 12.3 mph
+    - Fastest route: Route 10 (West Entrance to Downtown) average 24.0 mph
+    - Congestion zones: High congestion below 14 mph, moderate 14-16 mph, fast above 16 mph
+    - Traffic delay patterns show highest congestion during 10 AM - 2 PM period
+    """
+    
+    # Document 4: Key insights and recommendations
+    documents["insights"] = """
+    Key Insights from 2025 Analysis:
+    - Visitors strategically time arrivals during optimal traffic flow periods
+    - Parking demand PEAKS when traffic is flowing well (inverse relationship)
+    - This means parking fills up when traffic is NOT congested
+    - Weekend parking utilization significantly higher than weekdays (+15%)
+    - Digital payment adoption (97%) enables real-time optimization opportunities
+    - Infrastructure shows structural congestion patterns requiring long-term planning
+    - Cash usage declining from 5% (2024) to 3.1% (2025)
+    - Bank card usage increasing from 50.6% to 53.2%
+    
+    Visitor Recommendations:
+    - Best time to visit: Early morning (before 9 AM) or late afternoon (after 3 PM)
+    - Use Route 10 (West Entrance to Downtown) for fastest travel times (24 mph avg)
+    - Avoid Routes 7 and 8 during peak hours (10 AM - 2 PM) - only 12.3 mph
+    - Plan weekend visits with extra time for parking (+15% demand)
+    - Best parking availability: Buffalo Street (45% occupancy typically)
+    - Most congested: Railway Parking (often 92%+ full)
+    - Consider Park & Ride at Fenlands with free shuttle service every 15 minutes
+    """
+    
+    # Document 5: EDA Findings
+    documents["eda_findings"] = """
+    Comprehensive EDA Findings:
+    
+    Traffic Analysis:
+    - 24-hour speed profiles show consistent patterns across routes
+    - Morning rush shows speeds increasing from 15 mph to 16+ mph by 11 AM
+    - Afternoon shows gradual decline in speeds
+    - Route-specific patterns: Cave Avenue maintains better speeds (16-17 mph)
+    - Downtown routes experience most congestion
+    
+    Parking Demand Patterns:
+    - Clear peak between 10:00-13:00 hours
+    - Weekend demand exceeds weekday by significant margin
+    - All days average peaks at 262 transactions/hour
+    - Weekday peak: 253 transactions/hour
+    - Weekend peak: 271 transactions/hour
+    - Early morning (6-9 AM) shows minimal demand
+    - Late evening (after 6 PM) demand drops significantly
+    
+    Payment Evolution (2024 vs 2025):
+    - Digital adoption growing (95% to 97%)
+    - Cash declining rapidly (-1.9 percentage points)
+    - Bank cards becoming dominant method
+    - Mobile payments stable around 44%
+    
+    Correlation Insights:
+    - Strong negative correlation (-0.55) between traffic speed and parking demand
+    - Peak parking at 11:00 AM occurs when speed is 16.2 mph (above average)
+    - This inverse relationship suggests visitors avoid congested arrival times
+    - Strategic behavior: people park when traffic flows, not during jams
+    """
+    
+    # Document 6: Model Performance Details
+    documents["model_performance"] = """
+    Machine Learning Model Performance:
+    
+    Random Forest Model (Best Performer):
+    - R² Score: 0.760 (76% variance explained)
+    - RMSE: 12.4 vehicles/hour
+    - MAE: 8.2 vehicles/hour  
+    - MAPE: 15.3%
+    - Cross-validation: 5-fold CV performed
+    
+    Feature Importance Rankings:
+    1. Hour of day (0.25) - Most important
+    2. Day of week (0.18)
+    3. Demand lag 24h (0.15)
+    4. Is weekend (0.12)
+    5. Average speed (0.08)
+    6. Demand lag 1h (0.06)
+    7. Rolling mean 24h (0.05)
+    8. Month (0.04)
+    9. Temperature (0.04)
+    10. Precipitation (0.03)
+    
+    Model Achievements:
+    - Successfully fixed data leakage (reduced R² from unrealistic 1.0 to 0.76)
+    - Implemented 6 XAI techniques including SHAP analysis
+    - Processed 144,000+ traffic records and 800,000+ parking transactions
+    - Time series cross-validation for realistic performance
+    - Proper feature engineering using only historical data
+    """
+    
+    return documents
+
+def retrieve_context(query, documents, embedder, top_k=3):
+    """Retrieve most relevant documents for the query"""
+    if embedder is None:
+        return "", []
+    
+    # Compute embeddings for documents
+    doc_embeddings = {
+        doc_id: embedder.encode(text, convert_to_tensor=True)
+        for doc_id, text in documents.items()
+    }
+    
+    # Encode query
+    query_embedding = embedder.encode(query, convert_to_tensor=True)
+    
+    # Calculate similarities
+    scores = {}
+    for doc_id, emb in doc_embeddings.items():
+        score = util.pytorch_cos_sim(query_embedding, emb).item()
+        scores[doc_id] = score
+    
+    # Sort and get top K
+    sorted_docs = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    top_doc_ids = [doc_id for doc_id, score in sorted_docs[:top_k]]
+    
+    # Concatenate selected documents
+    context = "\n\n".join(documents[doc_id] for doc_id in top_doc_ids)
+    return context, sorted_docs
+
+def generate_response(query, context, generator):
+    """Generate response using FLAN-T5 with retrieved context"""
+    if generator is None:
+        return "RAG model not available. Please install transformers and sentence-transformers."
+    
+    prompt = f"""You are a helpful assistant for Banff National Park visitors. 
+Based on the following information about Banff parking and traffic, answer the user's question clearly and concisely.
+
+Context:
+{context}
+
+Question: {query}
+
+Provide a helpful, accurate answer based only on the context provided. If the context doesn't contain enough information, say so.
+
+Answer:"""
+    
+    try:
+        # Generate response
+        outputs = generator(prompt, max_new_tokens=250, do_sample=True, temperature=0.7)
+        response = outputs[0]['generated_text']
+        
+        # Clean up response if it includes the prompt
+        if response.startswith(prompt):
+            response = response[len(prompt):].strip()
+        
+        return response.strip()
+    except Exception as e:
+        return f"Error generating response: {str(e)}"
+
+def rag_chatbot(query, documents, embedder, generator):
+    """Main RAG chatbot function"""
+    context, scores = retrieve_context(query, documents, embedder, top_k=3)
+    response = generate_response(query, context, generator)
+    return response, scores
+
+# ============================================================================
+# END RAG CHATBOT FUNCTIONS
+# ============================================================================
+
 # Header
 st.markdown('<h1 class="main-header">🏔️ Banff Intelligent Parking & Traffic System</h1>', unsafe_allow_html=True)
-st.markdown("### ML-Powered Predictions with Explainable AI (XAI) & Comprehensive EDA")
+st.markdown("### ML-Powered Predictions with Explainable AI (XAI), Comprehensive EDA & RAG Chatbot")
 st.markdown("---")
 
 # Initialize session state
@@ -138,14 +377,15 @@ def load_model():
 
 model, scaler = load_model()
 
-# Main tabs - Added EDA as first tab
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+# Main tabs - Added RAG Chatbot as 7th tab
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 EDA Analysis",
     "🔮 Predictions", 
     "🔬 XAI Analysis", 
     "📈 Model Performance",
     "🚦 Real-time Dashboard",
-    "📚 Documentation"
+    "📚 Documentation",
+    "💬 RAG Chatbot"
 ])
 
 # Tab 1: EDA Analysis
@@ -866,6 +1106,7 @@ with tab6:
         3. **Understand XAI**: View model explanations and feature importance
         4. **Check Performance**: Review model accuracy metrics
         5. **Monitor Real-time**: View current conditions and recommendations
+        6. **Ask Questions**: Use the RAG chatbot for natural language queries
         
         ### 📊 Key Insights from EDA
         
@@ -896,6 +1137,7 @@ with tab6:
         - Fixed data leakage (R² from 1.0 to realistic 0.76)
         - Implemented 6 XAI techniques
         - Processed 144,000+ traffic records
+        - Added RAG chatbot for natural language interaction
         """)
     
     with doc_tabs[2]:
@@ -926,7 +1168,8 @@ with tab6:
         **Course**: CMPT 3835 - ML Work Integrated Project 2  
         **Institution**: NorQuest College  
         **Term**: Fall 2025  
-        **Group**: 11 
+        **Group**: 11  
+        **Team Members**: Harinderjeet Singh, Harjoban Singh, Anmolpreet Kaur, Gurwinder Kaur, Chahalpreet Singh  
         
         ### 🎯 Project Goals
         
@@ -934,16 +1177,193 @@ with tab6:
         2. Provide explainable AI insights ✅
         3. Reduce traffic congestion in Banff
         4. Improve visitor experience
-        
-        ### 📧 Contact
-        
-        For questions or feedback about this project, please contact the course instructor.
+        5. Natural language interaction via RAG chatbot ✅
         """)
+
+# Tab 7: RAG Chatbot (NEW!)
+with tab7:
+    st.markdown("## 💬 RAG Chatbot - Ask Questions About Banff Parking & Traffic")
+    
+    if not RAG_AVAILABLE:
+        st.error("""
+        ⚠️ **RAG Chatbot Not Available**
+        
+        The chatbot requires additional packages. Please install:
+        ```
+        pip install transformers sentence-transformers torch
+        ```
+        """)
+    else:
+        st.markdown("""
+        <div style='background-color: #e8f4f8; padding: 15px; border-radius: 10px; border-left: 5px solid #1f77b4; margin-bottom: 20px;'>
+        <h3 style='color: #1f77b4; margin-top: 0;'>🤖 Intelligent Question Answering</h3>
+        <p style='margin-bottom: 0;'>
+        Ask questions about Banff parking and traffic patterns in natural language. 
+        The chatbot uses <strong>Retrieval-Augmented Generation (RAG)</strong> to provide accurate, 
+        data-driven answers based on the Banff parking and traffic datasets.
+        </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Load RAG models
+        with st.spinner("🔄 Loading AI models... (This may take 1-2 minutes on first load)"):
+            try:
+                embedder, generator = load_rag_models()
+                
+                if embedder is None or generator is None:
+                    st.error("Failed to load RAG models. Please check installation.")
+                    st.stop()
+                
+                # Create documents
+                documents = create_banff_documents()
+                
+                st.success("✅ AI models loaded successfully!")
+                
+            except Exception as e:
+                st.error(f"❌ Error loading models: {str(e)}")
+                st.info("💡 Tip: Make sure you have installed transformers and sentence-transformers packages")
+                st.stop()
+        
+        # Example questions
+        st.markdown("### 💡 Try These Example Questions:")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("📍 Busiest parking locations"):
+                st.session_state.query_input = "What are the busiest parking locations in Banff?"
+            
+            if st.button("⏰ Best time to visit"):
+                st.session_state.query_input = "When is the best time to visit Banff to avoid congestion?"
+        
+        with col2:
+            if st.button("🚗 Worst traffic routes"):
+                st.session_state.query_input = "Which routes have the worst traffic conditions?"
+            
+            if st.button("📊 Weekend patterns"):
+                st.session_state.query_input = "Can you summarize the parking patterns on weekends?"
+        
+        with col3:
+            if st.button("💳 Payment trends"):
+                st.session_state.query_input = "What are the payment method trends?"
+            
+            if st.button("🔗 Traffic-parking relationship"):
+                st.session_state.query_input = "How does traffic relate to parking demand?"
+        
+        st.markdown("---")
+        
+        # Chat interface
+        st.markdown("### 💬 Ask Your Question:")
+        
+        # Initialize session state for chat history
+        if 'chat_history' not in st.session_state:
+            st.session_state.chat_history = []
+        
+        if 'query_input' not in st.session_state:
+            st.session_state.query_input = ""
+        
+        # User input
+        user_query = st.text_input(
+            "Type your question here:",
+            value=st.session_state.query_input,
+            placeholder="e.g., What are the peak parking hours in Banff?",
+            key="user_query_input"
+        )
+        
+        col1, col2, col3 = st.columns([1, 1, 3])
+        
+        with col1:
+            ask_button = st.button("🚀 Ask", type="primary")
+        
+        with col2:
+            clear_button = st.button("🗑️ Clear History")
+        
+        if clear_button:
+            st.session_state.chat_history = []
+            st.session_state.query_input = ""
+            st.rerun()
+        
+        # Process query
+        if ask_button and user_query:
+            with st.spinner("🤔 Thinking..."):
+                try:
+                    # Get response
+                    response, relevance_scores = rag_chatbot(user_query, documents, embedder, generator)
+                    
+                    # Add to chat history
+                    st.session_state.chat_history.append({
+                        "query": user_query,
+                        "response": response,
+                        "scores": relevance_scores
+                    })
+                    
+                    # Clear input
+                    st.session_state.query_input = ""
+                    
+                except Exception as e:
+                    st.error(f"❌ Error generating response: {str(e)}")
+        
+        # Display chat history
+        if st.session_state.chat_history:
+            st.markdown("---")
+            st.markdown("### 📜 Conversation History:")
+            
+            for i, chat in enumerate(reversed(st.session_state.chat_history)):
+                with st.expander(f"Q{len(st.session_state.chat_history) - i}: {chat['query'][:60]}...", expanded=(i == 0)):
+                    st.markdown(f"**🙋 Question:**")
+                    st.info(chat['query'])
+                    
+                    st.markdown(f"**🤖 Answer:**")
+                    st.success(chat['response'])
+                    
+                    # Show relevance scores
+                    with st.expander("🔍 Show Document Relevance Scores"):
+                        st.write("Documents ranked by relevance:")
+                        for doc_id, score in chat['scores'][:3]:
+                            st.write(f"- **{doc_id}**: {score:.3f}")
+        
+        # Information section
+        st.markdown("---")
+        
+        with st.expander("ℹ️ How This Works - RAG Technology"):
+            st.markdown("""
+            **Retrieval-Augmented Generation (RAG)** combines two powerful AI techniques:
+            
+            1. **📚 Retrieval**: 
+               - Your question is converted into a semantic embedding
+               - The system searches through Banff parking/traffic documents
+               - Most relevant information is retrieved using cosine similarity
+            
+            2. **🤖 Generation**: 
+               - Retrieved context is provided to FLAN-T5 language model
+               - The model generates a natural language response
+               - Answer is grounded in your actual data
+            
+            **Technologies Used:**
+            - **Embedding Model**: all-MiniLM-L6-v2 (fast, efficient semantic search)
+            - **Language Model**: FLAN-T5-Base (instruction-following text generation)
+            - **Data Sources**: Banff parking transactions + traffic monitoring data + EDA insights
+            
+            **Benefits:**
+            - ✅ Answers based on real data (not hallucinated)
+            - ✅ Natural language interaction
+            - ✅ Explainable (shows which documents were used)
+            - ✅ Fast and efficient
+            - ✅ Works offline after initial model download
+            
+            **Available Knowledge Base:**
+            - General Banff parking & traffic information
+            - 2025 parking statistics (85,928 transactions)
+            - Traffic patterns across 7 routes
+            - Key insights and visitor recommendations
+            - EDA findings and correlations
+            - Model performance details
+            """)
 
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #888;'>
-    <p>© 2025 Banff Intelligent Parking System | CMPT 3835 Group 11 Project | Last Updated: Nov 25, 2025</p>
+    <p>© 2025 Banff Intelligent Parking System | CMPT 3835 Group 11 Project | Enhanced with RAG Chatbot | Last Updated: Nov 25, 2025</p>
 </div>
 """, unsafe_allow_html=True)
