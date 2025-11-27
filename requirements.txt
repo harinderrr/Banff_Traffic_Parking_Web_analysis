@@ -10,3 +10,6 @@ seaborn
 joblib
 scipy
 statsmodels
+transformers
+sentence-transformers
+torch
