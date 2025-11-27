@@ -107,7 +107,7 @@ def load_rag_models():
     
     try:
         embedder = SentenceTransformer('all-MiniLM-L6-v2')
-        generator = pipeline("text2text-generation", model="google/flan-t5-large", device = -1)
+        generator = pipeline("text2text-generation", model="google/flan-t5-l=base", device = -1)
         return embedder, generator
     except Exception as e:
         st.error(f"Error loading RAG models: {str(e)}")
