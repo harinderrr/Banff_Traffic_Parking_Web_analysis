@@ -1091,8 +1091,140 @@ with tab5:
         Free shuttle every 15 min
         """)
 
-# Tab 6: Documentation (formerly Tab 5)
+# Tab 6: RAG Chatbot (NEW!)
 with tab6:
+    st.markdown("## 💬 RAG Chatbot - Ask Questions About Banff Parking & Traffic")
+    
+    if not RAG_AVAILABLE:
+        st.error("""
+        ⚠️ **RAG Chatbot Not Available**
+        
+        The chatbot requires additional packages. Please install:
+        ```
+        pip install transformers sentence-transformers torch
+        ```
+        """)
+    else:
+        st.markdown("""
+        <div style='background-color: #e8f4f8; padding: 15px; border-radius: 10px; border-left: 5px solid #1f77b4; margin-bottom: 20px;'>
+        <h3 style='color: #1f77b4; margin-top: 0;'>🤖 Intelligent Question Answering</h3>
+        <p style='margin-bottom: 0;'>
+        Ask questions about Banff parking and traffic patterns in natural language. 
+        The chatbot uses <strong>Retrieval-Augmented Generation (RAG)</strong> to provide accurate, 
+        data-driven answers based on the Banff parking and traffic datasets.
+        </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Load RAG models
+        with st.spinner("🔄 Loading AI models... (This may take 1-2 minutes on first load)"):
+            try:
+                embedder, generator = load_rag_models()
+                
+                if embedder is None or generator is None:
+                    st.error("Failed to load RAG models. Please check installation.")
+                    st.stop()
+                
+                # Create documents
+                documents = create_banff_documents()
+                
+                st.success("✅ AI models loaded successfully!")
+                
+            except Exception as e:
+                st.error(f"❌ Error loading models: {str(e)}")
+                st.info("💡 Tip: Make sure you have installed transformers and sentence-transformers packages")
+                st.stop()
+        # Example questions - Text format (non-clickable)
+        st.markdown("### 💡 Sample Questions You Can Ask:")
+        
+        st.markdown("""
+        <div style='background-color: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 4px solid #4caf50;'>
+        <p style='margin: 5px 0;'> "What are the busiest parking locations?"</p>
+        <p style='margin: 5px 0;'> "When is the best time to visit to avoid traffic?"</p>
+        <p style='margin: 5px 0;'> "Which routes should I avoid during peak hours?"</p>
+        <p style='margin: 5px 0;'> "How long do people typically park for?"</p>
+        <p style='margin: 5px 0;'> "What's the correlation between traffic and parking?"</p>
+        <p style='margin: 5px 0;'> "Summarize weekend parking patterns"</p>
+        <p style='margin: 5px 0;'> "Which payment methods are most popular?"</p>
+        <p style='margin: 5px 0;'> "What are the key insights from the data?"</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Chat interface
+        st.markdown("### 💬 Ask Your Question:")
+        
+        # Initialize session state for chat history
+        if 'chat_history' not in st.session_state:
+            st.session_state.chat_history = []
+        
+        if 'query_input' not in st.session_state:
+            st.session_state.query_input = ""
+        
+        # User input
+        user_query = st.text_input(
+            "Type your question here:",
+            value=st.session_state.query_input,
+            placeholder="e.g., What are the peak parking hours in Banff?",
+            key="user_query_input"
+        )
+        
+        col1, col2, col3 = st.columns([1, 1, 3])
+        
+        with col1:
+            ask_button = st.button("🚀 Ask", type="primary")
+        
+        with col2:
+            clear_button = st.button("🗑️ Clear History")
+        
+        if clear_button:
+            st.session_state.chat_history = []
+            st.session_state.query_input = ""
+            st.rerun()
+        
+        # Process query
+        if ask_button and user_query:
+            with st.spinner("🤔 Thinking..."):
+                try:
+                    # Get response
+                    response, relevance_scores = rag_chatbot(user_query, documents, embedder, generator)
+                    
+                    # Add to chat history
+                    st.session_state.chat_history.append({
+                        "query": user_query,
+                        "response": response,
+                        "scores": relevance_scores
+                    })
+                    
+                    # Clear input
+                    st.session_state.query_input = ""
+                    
+                except Exception as e:
+                    st.error(f"❌ Error generating response: {str(e)}")
+        
+        # Display chat history
+        if st.session_state.chat_history:
+            st.markdown("---")
+            st.markdown("### 📜 Conversation History:")
+            
+            for i, chat in enumerate(reversed(st.session_state.chat_history)):
+                with st.expander(f"Q{len(st.session_state.chat_history) - i}: {chat['query'][:60]}...", expanded=(i == 0)):
+                    st.markdown(f"**🙋 Question:**")
+                    st.info(chat['query'])
+                    
+                    st.markdown(f"**🤖 Answer:**")
+                    st.success(chat['response'])
+                    
+                    # Show relevance scores
+                    with st.expander("🔍 Show Document Relevance Scores"):
+                        st.write("Documents ranked by relevance:")
+                        for doc_id, score in chat['scores'][:3]:
+                            st.write(f"- **{doc_id}**: {score:.3f}")
+
+        
+# Tab 7: Documentation (formerly Tab 5)
+with tab7:
     st.markdown("## 📚 System Documentation")
     
     doc_tabs = st.tabs(["User Guide", "Model Details", "Data Sources", "About"])
@@ -1180,147 +1312,6 @@ with tab6:
         5. Natural language interaction via RAG chatbot ✅
         """)
 
-# Tab 7: RAG Chatbot (NEW!)
-with tab7:
-    st.markdown("## 💬 RAG Chatbot - Ask Questions About Banff Parking & Traffic")
-    
-    if not RAG_AVAILABLE:
-        st.error("""
-        ⚠️ **RAG Chatbot Not Available**
-        
-        The chatbot requires additional packages. Please install:
-        ```
-        pip install transformers sentence-transformers torch
-        ```
-        """)
-    else:
-        st.markdown("""
-        <div style='background-color: #e8f4f8; padding: 15px; border-radius: 10px; border-left: 5px solid #1f77b4; margin-bottom: 20px;'>
-        <h3 style='color: #1f77b4; margin-top: 0;'>🤖 Intelligent Question Answering</h3>
-        <p style='margin-bottom: 0;'>
-        Ask questions about Banff parking and traffic patterns in natural language. 
-        The chatbot uses <strong>Retrieval-Augmented Generation (RAG)</strong> to provide accurate, 
-        data-driven answers based on the Banff parking and traffic datasets.
-        </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Load RAG models
-        with st.spinner("🔄 Loading AI models... (This may take 1-2 minutes on first load)"):
-            try:
-                embedder, generator = load_rag_models()
-                
-                if embedder is None or generator is None:
-                    st.error("Failed to load RAG models. Please check installation.")
-                    st.stop()
-                
-                # Create documents
-                documents = create_banff_documents()
-                
-                st.success("✅ AI models loaded successfully!")
-                
-            except Exception as e:
-                st.error(f"❌ Error loading models: {str(e)}")
-                st.info("💡 Tip: Make sure you have installed transformers and sentence-transformers packages")
-                st.stop()
-        
-        # Example questions
-        st.markdown("### 💡 Try These Example Questions:")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("📍 Busiest parking locations"):
-                st.session_state.query_input = "What are the busiest parking locations in Banff?"
-            
-            if st.button("⏰ Best time to visit"):
-                st.session_state.query_input = "When is the best time to visit Banff to avoid congestion?"
-        
-        with col2:
-            if st.button("🚗 Worst traffic routes"):
-                st.session_state.query_input = "Which routes have the worst traffic conditions?"
-            
-            if st.button("📊 Weekend patterns"):
-                st.session_state.query_input = "Can you summarize the parking patterns on weekends?"
-        
-        with col3:
-            if st.button("💳 Payment trends"):
-                st.session_state.query_input = "What are the payment method trends?"
-            
-            if st.button("🔗 Traffic-parking relationship"):
-                st.session_state.query_input = "How does traffic relate to parking demand?"
-        
-        st.markdown("---")
-        
-        # Chat interface
-        st.markdown("### 💬 Ask Your Question:")
-        
-        # Initialize session state for chat history
-        if 'chat_history' not in st.session_state:
-            st.session_state.chat_history = []
-        
-        if 'query_input' not in st.session_state:
-            st.session_state.query_input = ""
-        
-        # User input
-        user_query = st.text_input(
-            "Type your question here:",
-            value=st.session_state.query_input,
-            placeholder="e.g., What are the peak parking hours in Banff?",
-            key="user_query_input"
-        )
-        
-        col1, col2, col3 = st.columns([1, 1, 3])
-        
-        with col1:
-            ask_button = st.button("🚀 Ask", type="primary")
-        
-        with col2:
-            clear_button = st.button("🗑️ Clear History")
-        
-        if clear_button:
-            st.session_state.chat_history = []
-            st.session_state.query_input = ""
-            st.rerun()
-        
-        # Process query
-        if ask_button and user_query:
-            with st.spinner("🤔 Thinking..."):
-                try:
-                    # Get response
-                    response, relevance_scores = rag_chatbot(user_query, documents, embedder, generator)
-                    
-                    # Add to chat history
-                    st.session_state.chat_history.append({
-                        "query": user_query,
-                        "response": response,
-                        "scores": relevance_scores
-                    })
-                    
-                    # Clear input
-                    st.session_state.query_input = ""
-                    
-                except Exception as e:
-                    st.error(f"❌ Error generating response: {str(e)}")
-        
-        # Display chat history
-        if st.session_state.chat_history:
-            st.markdown("---")
-            st.markdown("### 📜 Conversation History:")
-            
-            for i, chat in enumerate(reversed(st.session_state.chat_history)):
-                with st.expander(f"Q{len(st.session_state.chat_history) - i}: {chat['query'][:60]}...", expanded=(i == 0)):
-                    st.markdown(f"**🙋 Question:**")
-                    st.info(chat['query'])
-                    
-                    st.markdown(f"**🤖 Answer:**")
-                    st.success(chat['response'])
-                    
-                    # Show relevance scores
-                    with st.expander("🔍 Show Document Relevance Scores"):
-                        st.write("Documents ranked by relevance:")
-                        for doc_id, score in chat['scores'][:3]:
-                            st.write(f"- **{doc_id}**: {score:.3f}")
         
         # Information section
         st.markdown("---")
