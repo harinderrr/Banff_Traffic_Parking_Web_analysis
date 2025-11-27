@@ -277,37 +277,40 @@ def generate_response(query, context, generator):
     if generator is None:
         return "RAG model not available. Please install transformers and sentence-transformers."
     
-    prompt = f"""You are a helpful assistant for Banff National Park visitors. Based on the information provided, answer the user's question with a detailed, informative response.
+    prompt = f"""You are an expert assistant for Banff National Park's parking and traffic system. Answer the user's question thoroughly using the provided data.
 
-Context Information:
+Background Data:
 {context}
 
-User Question: {query}
+Question: {query}
 
-Instructions:
-- Provide a complete, detailed answer with specific data and statistics
-- Include relevant numbers, locations, and time periods from the context
-- Explain WHY the answer matters to visitors
-- Add practical recommendations when relevant
-- Write 3-5 sentences for a comprehensive answer
-- If the context mentions specific locations, routes, or times, include them
+Your task:
+1. Provide the direct answer first
+2. Include specific statistics, numbers, and locations from the data
+3. Explain the significance and what it means for visitors
+4. Add practical tips or recommendations
+5. Write 4-6 complete sentences
 
-Detailed Answer:"""
+Comprehensive Answer:"""
     
     try:
-        # Generate response with longer output
-        outputs = generator(prompt, max_new_tokens=300, do_sample=True, temperature=0.7, top_p=0.9)
+        # Generate longer, more detailed response
+        outputs = generator(
+            prompt, 
+            max_new_tokens=350,  # Increased from 250
+            do_sample=True, 
+            temperature=0.8,      # Slightly higher for more creativity
+            top_p=0.92,
+            repetition_penalty=1.1  # Reduce repetition
+        )
         response = outputs[0]['generated_text']
         
-        # Clean up response if it includes the prompt
+        # Clean up response
         if response.startswith(prompt):
             response = response[len(prompt):].strip()
         
-        # If response is too short, add context hint
-        if len(response.split()) < 20:
-            response = f"{response}\n\nBased on 2025 Banff data: The system analyzed 85,928 parking transactions and 144,000+ traffic records across 7 major routes from January-August 2025."
-        
         return response.strip()
+        
     except Exception as e:
         return f"Error generating response: {str(e)}"
 
