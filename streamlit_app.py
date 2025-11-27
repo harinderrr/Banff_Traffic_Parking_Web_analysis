@@ -107,7 +107,7 @@ def load_rag_models():
     
     try:
         embedder = SentenceTransformer('all-MiniLM-L6-v2')
-        generator = pipeline("text2text-generation", model="google/flan-t5-base")
+        generator = pipeline("text2text-generation", model="google/flan-t5-large", device = -1)
         return embedder, generator
     except Exception as e:
         st.error(f"Error loading RAG models: {str(e)}")
@@ -277,39 +277,50 @@ def generate_response(query, context, generator):
     if generator is None:
         return "RAG model not available. Please install transformers and sentence-transformers."
     
-    prompt = f"""You are an expert assistant for Banff National Park's parking and traffic system. Answer the user's question thoroughly using the provided data.
+    prompt = f"""Based on the Banff National Park parking and traffic data provided below, answer the user's question with specific details and statistics.
 
-Background Data:
+Data Context:
 {context}
 
-Question: {query}
+User Question: {query}
 
-Your task:
-1. Provide the direct answer first
-2. Include specific statistics, numbers, and locations from the data
-3. Explain the significance and what it means for visitors
-4. Add practical tips or recommendations
-5. Write 4-6 complete sentences
+Provide a clear, informative answer with 2-4 sentences. Include relevant numbers and facts from the data.
 
-Comprehensive Answer:"""
+Answer:"""
     
     try:
-        # Generate longer, more detailed response
+        # Generate response with anti-repetition settings
         outputs = generator(
             prompt, 
-            max_new_tokens=350,  # Increased from 250
-            do_sample=True, 
-            temperature=0.8,      # Slightly higher for more creativity
-            top_p=0.92,
-            repetition_penalty=1.1  # Reduce repetition
+            max_new_tokens=200,
+            min_length=30,
+            do_sample=True,
+            temperature=0.7,
+            top_p=0.9,
+            top_k=50,
+            repetition_penalty=2.5,        # ← Strong penalty against repetition
+            no_repeat_ngram_size=3,        # ← Prevent 3-word phrase repetition
+            early_stopping=True
         )
-        response = outputs[0]['generated_text']
         
-        # Clean up response
+        response = outputs[0]['generated_text'].strip()
+        
+        # Clean up response if needed
         if response.startswith(prompt):
             response = response[len(prompt):].strip()
         
-        return response.strip()
+        # Additional safety: truncate if we see repetition pattern
+        sentences = response.split('.')
+        if len(sentences) > 3:
+            # Check if last sentence is very similar to previous ones
+            last_sent = sentences[-1].lower().strip()
+            prev_sent = sentences[-2].lower().strip()
+            
+            if last_sent and prev_sent and (last_sent in prev_sent or prev_sent in last_sent):
+                # Truncate repeated content
+                response = '. '.join(sentences[:-1]) + '.'
+        
+        return response
         
     except Exception as e:
         return f"Error generating response: {str(e)}"
