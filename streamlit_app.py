@@ -386,15 +386,15 @@ def load_model():
 
 model, scaler = load_model()
 
-# Main tabs - Added RAG Chatbot as 7th tab
+# Main tabs - Added RAG Chatbot as 6th tab
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 EDA Analysis",
     "🔮 Predictions", 
     "🔬 XAI Analysis", 
     "📈 Model Performance",
     "🚦 Real-time Dashboard",
-    "📚 Documentation",
-    "💬 RAG Chatbot"
+    "💬 RAG Chatbot",      
+    "📚 Documentation"    
 ])
 
 # Tab 1: EDA Analysis
