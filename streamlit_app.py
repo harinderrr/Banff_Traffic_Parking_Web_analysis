@@ -1781,7 +1781,11 @@ with tab7:
         **Institution**: NorQuest College  
         **Term**: Fall 2025  
         **Group**: 11  
-        **Team Members**: Harinderjeet Singh, Harjoban Singh, Anmolpreet Kaur, Gurwinder Kaur, Chahalpreet Singh  
+        **Team Members**: Harinderjeet Singh
+                          Anmolpreet Kaur,
+                          Chahalpreet Singh  
+                          Gurwinder Kaur,
+                          Harjoban Singh 
         
         ### 🎯 Project Goals
         
