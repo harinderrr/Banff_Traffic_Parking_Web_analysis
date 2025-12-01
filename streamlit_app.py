@@ -107,7 +107,7 @@ def load_rag_models():
     
     try:
         embedder = SentenceTransformer('all-MiniLM-L6-v2')
-        generator = pipeline("text2text-generation", model="google/flan-t5-large", device = -1)
+        generator = pipeline("text2text-generation", model="google/flan-t5-base")
         return embedder, generator
     except Exception as e:
         st.error(f"Error loading RAG models: {str(e)}")
@@ -348,7 +348,7 @@ if 'model_loaded' not in st.session_state:
 
 # Sidebar
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Banff_National_Park_Logo.svg/200px-Banff_National_Park_Logo.svg.png", width=150)
+    #st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Banff_National_Park_Logo.svg/200px-Banff_National_Park_Logo.svg.png", width=150)
     st.markdown("### 📊 System Controls")
     
     # Model selection
