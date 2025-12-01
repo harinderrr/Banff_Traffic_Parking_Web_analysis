@@ -704,7 +704,7 @@ with tab1:
             with col3:
                 st.metric("Speed at Peak", "16.2 mph", "Above average")
 
-# Tab 2: Predictions - FIXED VERSION
+# Tab 2: Predictions - UPDATED WITH IMPROVED SEARCH TIME
 with tab2:
     st.markdown("## 🎯 Parking Demand Prediction")
     
@@ -871,11 +871,37 @@ with tab2:
             occupancy = (predicted_demand / capacity) * 100
             occupancy = min(95, occupancy)
             
-            # Calculate wait time (only if high occupancy)
-            if occupancy > 80:
-                wait_time = (occupancy - 80) * 2  # 2 min per % over 80%
+            # ============================================================
+            # IMPROVED SEARCH TIME CALCULATION (Option 1)
+            # ============================================================
+            if occupancy < 50:
+                search_time = 0
+                search_status = "🟢"
+                search_desc = "Immediate"
+            elif occupancy < 70:
+                # Light search time (1-3 min) - need to circle once
+                search_time = int(1 + (occupancy - 50) / 10)
+                search_status = "🟢"
+                search_desc = "Quick"
+            elif occupancy < 85:
+                # Moderate search time (3-10 min) - need to circle multiple times
+                search_time = int(3 + (occupancy - 70) / 2)
+                search_status = "🟡"
+                search_desc = "Moderate"
+            elif occupancy < 95:
+                # Significant wait for someone to leave (8-18 min)
+                search_time = int(8 + (occupancy - 85))
+                search_status = "🟠"
+                search_desc = "Long"
             else:
-                wait_time = 0
+                # Very long wait, might need to queue (15-30 min)
+                search_time = int(15 + (occupancy - 95) * 3)
+                search_status = "🔴"
+                search_desc = "Very Long"
+            
+            # Adjust for parking lot size (bigger lots = faster to find spot)
+            size_factor = capacity / 200  # Normalize to Fire Hall (200 capacity)
+            search_time = max(0, int(search_time / size_factor))
             
             # Historical average for comparison
             historical_avg = int(base_demand * 0.9)
@@ -894,6 +920,7 @@ with tab2:
                 st.dataframe(factors_df, use_container_width=True, hide_index=True)
             
             col1, col2, col3 = st.columns(3)
+            
             with col1:
                 st.metric(
                     "Predicted Demand",
@@ -901,20 +928,34 @@ with tab2:
                     delta=f"{predicted_demand - historical_avg:+d} vs average",
                     help=f"Historical average: {historical_avg} vehicles/hour"
                 )
+            
             with col2:
-                occupancy_color = "🟢" if occupancy < 70 else "🟡" if occupancy < 85 else "🔴"
+                occupancy_emoji = "🟢" if occupancy < 70 else "🟡" if occupancy < 85 else "🔴"
                 st.metric(
                     "Expected Occupancy",
-                    f"{occupancy:.0f}% {occupancy_color}",
+                    f"{occupancy:.0f}% {occupancy_emoji}",
                     delta=f"{occupancy - 70:+.0f}% vs typical",
                     help=f"Capacity: {capacity} spaces"
                 )
+            
             with col3:
+                # Display search time with improved formatting
+                time_display = "None" if search_time == 0 else f"{search_time} min"
+                
                 st.metric(
-                    "Est. Wait Time",
-                    f"{wait_time:.0f} min",
-                    delta=f"{wait_time - 5:+.0f} min vs average" if wait_time > 0 else "No wait",
-                    help="Wait time for available spot"
+                    "Est. Search Time",
+                    f"{search_status} {time_display}",
+                    delta=search_desc,
+                    delta_color="off",
+                    help="""Time to find an available parking spot:
+
+- 0 min: Immediate availability
+- 1-3 min: Quick search (1 lap around lot)
+- 3-10 min: Multiple laps needed
+- 8-18 min: Wait for someone to leave
+- 15+ min: Significant wait/queue expected
+
+Includes time to circle lot and find open space."""
                 )
             
             # Recommendations based on prediction
@@ -923,22 +964,28 @@ with tab2:
             if occupancy > 85:
                 st.error(f"""
                 **⚠️ High Occupancy Alert**  
-                {selected_lot} is expected to be {occupancy:.0f}% full. Consider:
-                - Arriving before {max(7, pred_hour-2)}:00 or after {min(20, pred_hour+2)}:00
-                - Alternative: Buffalo Street (typically 45% occupied)
-                - Using Park & Ride at Fenlands
+                {selected_lot} is expected to be {occupancy:.0f}% full with an estimated search time of **{search_time} minutes**.
+                
+                **Better Options:**
+                - ⏰ Arrive before {max(7, pred_hour-2)}:00 or after {min(20, pred_hour+2)}:00
+                - 📍 Alternative: Buffalo Street (typically 45% occupied, faster parking)
+                - 🚌 Use Park & Ride at Fenlands (free shuttle every 15 min)
                 """)
             elif occupancy > 70:
                 st.warning(f"""
                 **🟡 Moderate Occupancy**  
                 {selected_lot} will be {occupancy:.0f}% full. You may need to search for parking.
-                Expected wait time: {wait_time:.0f} minutes
+                
+                **Expected:** {search_time} minute search time ({search_desc.lower()})
+                
+                **Tip:** Arrive 10-15 minutes early to allow for parking search.
                 """)
             else:
                 st.success(f"""
                 **✅ Good Availability**  
                 {selected_lot} should have plenty of space ({100-occupancy:.0f}% available).
-                Great time to visit!
+                
+                **Search Time:** {time_display} - Great time to visit!
                 """)
             
             # Confidence interval plot
