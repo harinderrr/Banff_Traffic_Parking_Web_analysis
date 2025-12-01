@@ -1,8 +1,13 @@
 """
 CMPT 3835 - Banff Traffic & Parking Prediction App with EDA + RAG Chatbot
 Streamlit application with EDA, ML Modeling, XAI, and RAG Chatbot features
+MOBILE-RESPONSIVE VERSION with Improved Search Time & Fixed RAG
 Group 11
-Date: November 25, 2025
+Team members: Harinderjeet Singh
+              Anmolpreet Kaur
+              Chahalpreet Singh
+              Gurwinder Kaur
+              Harjoban Singh
 """
 
 import streamlit as st
@@ -50,24 +55,32 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# ============================================================================
+# MOBILE-RESPONSIVE CSS
+# ============================================================================
 st.markdown("""
 <style>
+    /* ============================================
+       DESKTOP STYLES (Base)
+       ============================================ */
     .main-header {
         font-size: 2.5rem;
         color: #1E3A8A;
         text-align: center;
         margin-bottom: 2rem;
     }
+    
     .metric-card {
         background-color: #f0f2f6;
         padding: 1rem;
         border-radius: 0.5rem;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+    
     .stTabs [data-baseweb="tab-list"] {
         gap: 24px;
     }
+    
     .stTabs [data-baseweb="tab"] {
         height: 50px;
         padding-left: 20px;
@@ -75,22 +88,185 @@ st.markdown("""
         background-color: #f0f2f6;
         border-radius: 5px 5px 0px 0px;
     }
+    
     .stTabs [aria-selected="true"] {
         background-color: #1E3A8A;
         color: white;
     }
+    
     .chat-message {
         padding: 1rem;
         border-radius: 0.5rem;
         margin-bottom: 1rem;
     }
+    
     .user-message {
         background-color: #e3f2fd;
         border-left: 4px solid #2196f3;
     }
+    
     .bot-message {
         background-color: #f1f8e9;
         border-left: 4px solid #4caf50;
+    }
+    
+    /* Make plots responsive */
+    .js-plotly-plot {
+        width: 100% !important;
+    }
+    
+    /* ============================================
+       TABLET STYLES (max-width: 1024px)
+       ============================================ */
+    @media (max-width: 1024px) {
+        .main-header {
+            font-size: 2rem;
+        }
+        
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 12px;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            height: 45px;
+            padding-left: 12px;
+            padding-right: 12px;
+            font-size: 0.9rem;
+        }
+        
+        /* Stack sidebar metrics */
+        .css-1d391kg {
+            padding: 1rem 0.5rem;
+        }
+    }
+    
+    /* ============================================
+       MOBILE STYLES (max-width: 768px)
+       ============================================ */
+    @media (max-width: 768px) {
+        /* Header adjustments */
+        .main-header {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            line-height: 1.3;
+        }
+        
+        /* Subtitle adjustments */
+        h3 {
+            font-size: 1.1rem !important;
+        }
+        
+        /* Tab styling for mobile */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            height: 40px;
+            padding-left: 8px;
+            padding-right: 8px;
+            font-size: 0.75rem;
+            min-width: 80px;
+        }
+        
+        /* Metrics cards - better spacing */
+        .metric-card {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Sidebar adjustments */
+        [data-testid="stSidebar"] {
+            width: 100% !important;
+        }
+        
+        /* Button sizing */
+        .stButton button {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Text input full width */
+        .stTextInput input {
+            font-size: 16px !important; /* Prevents zoom on iOS */
+        }
+        
+        /* Chat messages */
+        .chat-message {
+            padding: 0.75rem;
+        }
+        
+        /* Expander styling */
+        .streamlit-expanderHeader {
+            font-size: 0.9rem;
+        }
+        
+        /* Make plotly charts touch-friendly */
+        .js-plotly-plot .plotly .modebar {
+            display: none; /* Hide modebar on mobile for cleaner look */
+        }
+    }
+    
+    /* ============================================
+       SMALL MOBILE STYLES (max-width: 480px)
+       ============================================ */
+    @media (max-width: 480px) {
+        /* Even smaller header */
+        .main-header {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        /* Compact tabs */
+        .stTabs [data-baseweb="tab"] {
+            height: 35px;
+            padding-left: 6px;
+            padding-right: 6px;
+            font-size: 0.7rem;
+            min-width: 70px;
+        }
+        
+        /* Smaller metric text */
+        [data-testid="stMetricValue"] {
+            font-size: 1.2rem;
+        }
+        
+        /* Compact padding */
+        .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            padding-top: 1rem !important;
+        }
+        
+        /* Info boxes */
+        .stInfo, .stSuccess, .stWarning, .stError {
+            padding: 0.5rem;
+            font-size: 0.85rem;
+        }
+    }
+    
+    /* ============================================
+       TOUCH-FRIENDLY IMPROVEMENTS
+       ============================================ */
+    @media (hover: none) and (pointer: coarse) {
+        /* Larger touch targets */
+        button {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        /* Better spacing for touch */
+        .stButton {
+            margin: 0.5rem 0;
+        }
+        
+        /* Easier to tap checkboxes/radio */
+        input[type="checkbox"],
+        input[type="radio"] {
+            transform: scale(1.3);
+            margin-right: 0.5rem;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -114,7 +290,7 @@ def load_rag_models():
         return None, None
 
 def create_banff_documents():
-    """Create searchable documents from Banff data"""
+    """Create searchable documents from Banff data - CORRECTED VERSION"""
     documents = {}
     
     # Document 1: General Banff parking info
@@ -128,18 +304,41 @@ def create_banff_documents():
     Traffic is monitored across 7 major routes connecting key attractions.
     """
     
-    # Document 2: Parking statistics summary
+    # Document 2: Parking statistics summary - CORRECTED VERSION
     documents["parking_stats"] = """
     Parking Statistics (2025 Data):
-    - Total parking transactions recorded: 85,928
+    
+    IMPORTANT DEFINITIONS:
+    - "Total transactions" = Sum of all parking events over 8-month study period (January-August 2025)
+    - "Hourly demand" = Number of vehicles arriving per hour at a location
+    - "Capacity" = Total number of parking spaces available at a location
+    
+    Fire Hall Lot West (Busiest Location):
+    - Physical capacity: 200 parking spaces (static number)
+    - Total transactions (Jan-Aug 2025): 4,650 vehicles (cumulative over entire 8-month period)
+    - Peak hourly arrivals: 65-85 vehicles/hour during peak times (10 AM - 1 PM)
+    - Off-peak hourly arrivals: 30-50 vehicles/hour
+    - Average parking duration: 150 minutes (2.5 hours)
+    - Typical occupancy: 70-90%
+    - Maximum sustainable throughput: approximately 80 vehicles/hour
+    
+    This location is "busiest" because it had the most total transactions (4,650) over the study period,
+    NOT because it processes thousands of vehicles per hour. The realistic hourly demand ranges from
+    30-85 vehicles/hour depending on time of day.
+    
+    Other Major Locations:
+    - Bear Street Lot: 4,635 total transactions, 180 capacity, 62 vehicles/hour average
+    - Central Park Lot: 4,561 total transactions, 175 capacity, 60 vehicles/hour average
+    - Buffalo Street: Lower demand, typically 45% occupancy
+    
+    System-Wide Statistics:
+    - Total parking transactions recorded: 85,928 across all locations
     - Number of parking locations: 15+ major facilities
-    - Average parking duration: 120-180 minutes
-    - Peak parking hours: 10:00 AM - 1:00 PM (262 transactions per hour at peak)
+    - Average parking duration: 120-180 minutes (2-3 hours)
+    - Peak parking hours: 10:00 AM - 1:00 PM (262 transactions per hour system-wide)
     - Weekend utilization is 15% higher than weekdays
     - Most popular payment method: Digital payments (97% adoption - 53.2% bank cards, 43.7% mobile)
-    - Top location: Fire Hall Lot West with 4,650 transactions
     - Revenue efficiency varies from 0.7 to 1.3 across locations
-    - Peak parking hour: 11:00 AM with 9,167 total transactions
     """
     
     # Document 3: Traffic patterns summary
@@ -298,8 +497,8 @@ Answer:"""
             temperature=0.7,
             top_p=0.9,
             top_k=50,
-            repetition_penalty=2.5,        # ← Strong penalty against repetition
-            no_repeat_ngram_size=3,        # ← Prevent 3-word phrase repetition
+            repetition_penalty=2.5,
+            no_repeat_ngram_size=3,
             early_stopping=True
         )
         
@@ -312,12 +511,10 @@ Answer:"""
         # Additional safety: truncate if we see repetition pattern
         sentences = response.split('.')
         if len(sentences) > 3:
-            # Check if last sentence is very similar to previous ones
             last_sent = sentences[-1].lower().strip()
             prev_sent = sentences[-2].lower().strip()
             
             if last_sent and prev_sent and (last_sent in prev_sent or prev_sent in last_sent):
-                # Truncate repeated content
                 response = '. '.join(sentences[:-1]) + '.'
         
         return response
@@ -348,7 +545,6 @@ if 'model_loaded' not in st.session_state:
 
 # Sidebar
 with st.sidebar:
-    #st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Banff_National_Park_Logo.svg/200px-Banff_National_Park_Logo.svg.png", width=150)
     st.markdown("### 📊 System Controls")
     
     # Model selection
@@ -400,7 +596,7 @@ def load_model():
 
 model, scaler = load_model()
 
-# Main tabs - Added RAG Chatbot as 6th tab
+# Main tabs
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 EDA Analysis",
     "🔮 Predictions", 
