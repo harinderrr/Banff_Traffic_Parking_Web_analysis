@@ -1314,8 +1314,21 @@ with tab4:
     
     st.info(f"**📅 Current Time:** {now.strftime('%I:%M %p')} | **Day:** {current_day} | **Status:** {'Weekend' if is_current_weekend else 'Weekday'} | {season_emoji} **Season:** {season_name}")
     
+    # Enhanced styling for 3-metric layout
+    st.markdown("""
+    <style>
+    [data-testid="stMetricValue"] {
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     # Metrics row
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         delta_occ = current_occupancy - 65
@@ -1323,13 +1336,13 @@ with tab4:
     with col2:
         delta_spots = available_spots - 70
         st.metric("Available Spots", available_spots, delta=f"{delta_spots:+d}")
+    # with col3:
+    #     delta_wait = wait_time - 5
+    #     st.metric("Avg Wait Time", f"{wait_time} min", delta=f"{delta_wait:+d} min")
+    # with col4:
+    #     delta_speed = current_speed - 15
+    #     st.metric("Traffic Speed", f"{current_speed} mph", delta=f"{delta_speed:+d} mph")
     with col3:
-        delta_wait = wait_time - 5
-        st.metric("Avg Wait Time", f"{wait_time} min", delta=f"{delta_wait:+d} min")
-    with col4:
-        delta_speed = current_speed - 15
-        st.metric("Traffic Speed", f"{current_speed} mph", delta=f"{delta_speed:+d} mph")
-    with col5:
         delta_pred = pred_demand - 45
         st.metric("Next Hour Demand", f"{pred_demand}/hour", delta=f"{delta_pred:+d}")
     
