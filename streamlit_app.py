@@ -1189,14 +1189,40 @@ with tab3:
 with tab4:
     st.markdown("## 🚦 Real-time Parking & Traffic Dashboard")
     
-    # Get current time for dynamic updates
+    # Get ACTUAL current time for dynamic updates
     now = datetime.now()
     current_hour = now.hour
+    current_month = now.month
     current_day = now.strftime("%A")
     is_current_weekend = now.weekday() >= 5
     
-    # Calculate dynamic metrics based on current time
-    def get_current_occupancy(hour, is_weekend):
+    # Calculate month/seasonality factor
+    def get_season_factor(month):
+        """
+        Banff tourism seasonality:
+        - Winter (Dec-Feb): Low season (0.6x)
+        - Spring (Mar-Apr): Shoulder (0.8x)
+        - May: Increasing (0.95x)
+        - Summer (Jun-Sep): Peak season (1.3x)
+        - Fall (Oct-Nov): Shoulder (0.75x)
+        """
+        if month in [12, 1, 2]:  # Winter - Low season
+            return 0.6
+        elif month in [3, 4]:  # Spring - Shoulder
+            return 0.8
+        elif month == 5:  # Late spring
+            return 0.95
+        elif month in [6, 7, 8, 9]:  # Summer - PEAK
+            return 1.3
+        elif month in [10, 11]:  # Fall - Shoulder
+            return 0.75
+        return 0.8
+    
+    season_factor = get_season_factor(current_month)
+    
+    # Calculate dynamic metrics based on current time AND season
+    def get_current_occupancy(hour, is_weekend, season_mult, lot_name):
+        # Base occupancy by hour
         base = 60
         if 10 <= hour <= 13:
             base = 85
@@ -1209,42 +1235,73 @@ with tab4:
         else:
             base = 35
         
+        # Weekend adjustment
         if is_weekend:
             base *= 1.15
         
-        return min(95, int(base + np.random.normal(0, 3)))
+        # Season adjustment
+        base *= season_mult
+        
+        # Parking lot specific adjustment
+        lot_factors = {
+            "Banff Avenue": 1.0,
+            "Bear Street": 1.05,
+            "Buffalo Street": 0.7,
+            "Railway Parking": 1.25,
+            "Bow Falls": 0.9,
+            "Fire Hall Lot West": 1.1,
+            "Central Park Lot": 1.0,
+            "Clock Tower Lot": 0.95
+        }
+        
+        lot_factor = lot_factors.get(lot_name, 1.0)
+        base *= lot_factor
+        
+        return min(95, max(20, int(base + np.random.normal(0, 2))))
     
-    def get_current_traffic_speed(hour):
+    def get_current_traffic_speed(hour, season_mult):
+        # Base speed by hour
         if 10 <= hour <= 13:
-            return int(14 + np.random.normal(0, 1))
+            base = 14
         elif 7 <= hour <= 9 or 14 <= hour <= 17:
-            return int(15 + np.random.normal(0, 1))
+            base = 15
         else:
-            return int(16 + np.random.normal(0, 1))
+            base = 16
+        
+        # In low season, traffic is better
+        if season_mult < 0.8:
+            base += 2
+        
+        return int(base + np.random.normal(0, 0.5))
     
-    current_occupancy = get_current_occupancy(current_hour, is_current_weekend)
-    available_spots = int(200 * (100 - current_occupancy) / 100)
+    # Get metrics for selected parking lot
+    current_occupancy = get_current_occupancy(current_hour, is_current_weekend, season_factor, selected_lot)
+    lot_capacity = parking_lot_data.get(selected_lot, parking_lot_data["Banff Avenue"])["capacity"]
+    available_spots = int(lot_capacity * (100 - current_occupancy) / 100)
     
     if current_occupancy < 70:
-        wait_time = int(np.random.normal(2, 1))
+        wait_time = max(0, int(np.random.normal(2, 1)))
     elif current_occupancy < 85:
         wait_time = int(np.random.normal(5, 2))
     else:
         wait_time = int(np.random.normal(12, 3))
     
-    current_speed = get_current_traffic_speed(current_hour)
+    current_speed = get_current_traffic_speed(current_hour, season_factor)
     
     # Calculate predicted demand for next hour
     next_hour = (current_hour + 1) % 24
     if 10 <= next_hour <= 13:
-        pred_demand = int(60 + np.random.normal(0, 5))
+        pred_demand = int((60 * season_factor) + np.random.normal(0, 5))
     elif 7 <= next_hour <= 9 or 14 <= next_hour <= 17:
-        pred_demand = int(50 + np.random.normal(0, 4))
+        pred_demand = int((50 * season_factor) + np.random.normal(0, 4))
     else:
-        pred_demand = int(35 + np.random.normal(0, 3))
+        pred_demand = int((35 * season_factor) + np.random.normal(0, 3))
     
-    # Display current time info
-    st.info(f"**📅 Current Time:** {now.strftime('%I:%M %p')} | **Day:** {current_day} | **Status:** {'Weekend' if is_current_weekend else 'Weekday'}")
+    # Display current time info with season indicator
+    season_emoji = "❄️" if current_month in [12, 1, 2] else "🌸" if current_month in [3, 4, 5] else "☀️" if current_month in [6, 7, 8, 9] else "🍂"
+    season_name = "Winter (Low Season)" if current_month in [12, 1, 2] else "Spring (Shoulder)" if current_month in [3, 4, 5] else "Summer (Peak Season)" if current_month in [6, 7, 8, 9] else "Fall (Shoulder)"
+    
+    st.info(f"**📅 Current Time:** {now.strftime('%I:%M %p')} | **Day:** {current_day} | **Status:** {'Weekend' if is_current_weekend else 'Weekday'} | {season_emoji} **Season:** {season_name}")
     
     # Metrics row
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -1273,28 +1330,42 @@ with tab4:
         
         hours_ahead = list(range(24))
         
-        # Generate forecast based on current hour
+        # Generate forecast based on current hour AND season
         forecast = []
         for h in hours_ahead:
             if 10 <= h <= 13:
-                forecast.append(int(60 + np.random.normal(0, 5)))
+                forecast.append(int((60 * season_factor) + np.random.normal(0, 5)))
             elif 7 <= h <= 9 or 14 <= h <= 17:
-                forecast.append(int(50 + np.random.normal(0, 4)))
+                forecast.append(int((50 * season_factor) + np.random.normal(0, 4)))
             elif 18 <= h <= 20:
-                forecast.append(int(40 + np.random.normal(0, 3)))
+                forecast.append(int((40 * season_factor) + np.random.normal(0, 3)))
             else:
-                forecast.append(int(30 + np.random.normal(0, 3)))
+                forecast.append(int((30 * season_factor) + np.random.normal(0, 3)))
         
         fig = px.line(
             x=hours_ahead, y=forecast,
-            title=f"Forecast Starting from {current_hour}:00",
+            title=f"Forecast from {current_hour}:00 ({season_name})",
             labels={'x': 'Hours Ahead', 'y': 'Predicted Demand'},
             markers=True
         )
-        fig.add_hline(y=50, line_dash="dash", annotation_text="Capacity Threshold", line_color="red")
+        
+        # Capacity threshold adjusted for season
+        capacity_threshold = int(50 * season_factor)
+        fig.add_hline(y=capacity_threshold, line_dash="dash", 
+                     annotation_text=f"Capacity Threshold (~{capacity_threshold})", 
+                     line_color="red")
         
         # Mark current hour
         fig.add_vline(x=0, line_dash="dot", line_color="green", annotation_text="Now")
+        
+        # Add season note
+        fig.add_annotation(
+            text=f"Season Factor: {season_factor:.1f}x",
+            xref="paper", yref="paper",
+            x=0.02, y=0.98, showarrow=False,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="gray", borderwidth=1
+        )
         
         st.plotly_chart(fig, use_container_width=True)
     
@@ -1303,25 +1374,41 @@ with tab4:
         
         lots = ["Banff Ave", "Bear St", "Buffalo St", "Railway", "Bow Falls"]
         
-        # Dynamic occupancy based on time
+        # Dynamic occupancy based on time AND season for each lot
         occupancy_vals = []
         for lot in lots:
-            if lot == "Railway":
-                occ = min(95, get_current_occupancy(current_hour, is_current_weekend) + 10)
-            elif lot == "Buffalo St":
-                occ = max(40, get_current_occupancy(current_hour, is_current_weekend) - 30)
-            else:
-                occ = get_current_occupancy(current_hour, is_current_weekend) + np.random.randint(-10, 10)
-            occupancy_vals.append(max(40, min(95, occ)))
+            # Map display names to full names
+            lot_map = {
+                "Banff Ave": "Banff Avenue",
+                "Bear St": "Bear Street",
+                "Buffalo St": "Buffalo Street",
+                "Railway": "Railway Parking",
+                "Bow Falls": "Bow Falls"
+            }
+            full_lot_name = lot_map.get(lot, lot)
+            
+            # Get occupancy for this specific lot
+            occ = get_current_occupancy(current_hour, is_current_weekend, season_factor, full_lot_name)
+            occupancy_vals.append(max(15, min(95, occ)))
         
         fig = px.bar(
             x=lots, y=occupancy_vals,
-            title="Real-time Occupancy Levels",
+            title=f"Real-time Occupancy Levels ({season_name})",
             labels={'x': 'Parking Lot', 'y': 'Occupancy (%)'},
             color=occupancy_vals,
             color_continuous_scale=[[0, 'green'], [0.5, 'yellow'], [1, 'red']]
         )
         fig.add_hline(y=80, line_dash="dash", annotation_text="High Occupancy", line_color="orange")
+        
+        # Add season context annotation
+        fig.add_annotation(
+            text=f"Season Factor: {season_factor:.1f}x",
+            xref="paper", yref="paper",
+            x=0.98, y=0.98, showarrow=False,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="gray", borderwidth=1
+        )
+        
         st.plotly_chart(fig, use_container_width=True)
     
     # Dynamic recommendations
@@ -1339,12 +1426,40 @@ with tab4:
     worst_lot = lots[worst_idx]
     worst_occ = occupancy_vals[worst_idx]
     
+    # Show selected lot status
+    selected_lot_short = selected_lot.replace(" Lot", "").replace(" Street", " St").replace(" Parking", "").replace("Avenue", "Ave")
+    
     with col1:
-        st.success(f"""
-        **✅ Best Option Now**  
-        {best_lot}  
-        {best_occ}% occupancy, ~{int((100-best_occ)*2/100)} min wait
-        """)
+        # Check if selected lot is the best option
+        if selected_lot_short in lots:
+            selected_occ = occupancy_vals[lots.index(selected_lot_short)]
+            if selected_occ < 60:
+                st.success(f"""
+                **✅ Your Selection: {selected_lot}**  
+                {selected_occ}% occupancy  
+                ~{max(0, int((selected_occ-50)*0.5))} min wait  
+                Good choice! ✨
+                """)
+            elif selected_occ < 80:
+                st.info(f"""
+                **📍 Your Selection: {selected_lot}**  
+                {selected_occ}% occupancy  
+                ~{int((selected_occ-50)*0.5)} min wait  
+                Moderate availability
+                """)
+            else:
+                st.warning(f"""
+                **⚠️ Your Selection: {selected_lot}**  
+                {selected_occ}% occupancy  
+                ~{int((selected_occ-60))} min wait  
+                Consider alternatives below
+                """)
+        else:
+            st.success(f"""
+            **✅ Best Option Now**  
+            {best_lot}  
+            {best_occ}% occupancy, ~{max(0, int((best_occ-50)*0.5))} min wait
+            """)
     
     with col2:
         if worst_occ > 85:
@@ -1352,6 +1467,12 @@ with tab4:
             **⚠️ Avoid**  
             {worst_lot}  
             {worst_occ}% full, ~{int((worst_occ-70)*1.5)} min wait
+            """)
+        elif best_lot != selected_lot_short and selected_lot_short not in lots:
+            st.success(f"""
+            **✅ Best Alternative**  
+            {best_lot}  
+            {best_occ}% occupancy
             """)
         else:
             st.warning(f"""
@@ -1361,14 +1482,30 @@ with tab4:
             """)
     
     with col3:
-        st.info("""
-        **📍 Park & Ride**  
-        Fenlands Lot  
-        Free shuttle every 15 min
-        """)
+        # Season-aware recommendation
+        if season_factor < 0.8:
+            st.info(f"""
+            **{season_emoji} Low Season Advantage**  
+            Great time to visit!  
+            Avg {int((1-season_factor)*100)}% less busy  
+            Most lots available
+            """)
+        elif season_factor > 1.2:
+            st.warning(f"""
+            **{season_emoji} Peak Season Alert**  
+            Park early or use shuttle  
+            Avg {int((season_factor-1)*100)}% busier  
+            Consider Park & Ride
+            """)
+        else:
+            st.info("""
+            **📍 Park & Ride**  
+            Fenlands Lot  
+            Free shuttle every 15 min
+            """)
     
     # Auto-refresh indicator
-    st.caption(f"🔄 Last updated: {now.strftime('%I:%M:%S %p')} | Refresh page for latest data")
+    st.caption(f"🔄 Last updated: {now.strftime('%I:%M:%S %p')} | Season: {season_name} (×{season_factor:.1f}) | Selected: {selected_lot} | Refresh page for latest data")
 
 # Tab 5: RAG Chatbot (UNCHANGED)
 with tab5:
