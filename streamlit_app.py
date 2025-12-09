@@ -1328,7 +1328,7 @@ with tab4:
     </style>
     """, unsafe_allow_html=True)
     # Metrics row
-    col1, col2 = st.columns(3)
+    col1, col2 = st.columns(2)
     
     with col1:
         delta_occ = current_occupancy - 65
