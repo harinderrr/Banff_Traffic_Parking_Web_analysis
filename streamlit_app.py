@@ -405,8 +405,8 @@ def rag_chatbot(query, documents, embedder, generator):
 # ============================================================================
 # HEADER
 # ============================================================================
-st.markdown('<h1 class="main-header">🏔️ Banff Intelligent Parking & Traffic System</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">ML-Powered Predictions with Explainable AI, Comprehensive EDA & RAG Chatbot</p>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">🏔️ Banff Intelligent Parking Guidance System</h1>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">ML-Powered Parking Predictions with Traffic Context & RAG Chatbot</p>', unsafe_allow_html=True)
 st.markdown("---")
 
 # ============================================================================
@@ -1327,25 +1327,41 @@ with tab4:
     }
     </style>
     """, unsafe_allow_html=True)
-    # Metrics row
-    col1, col2 = st.columns(2)
+    # Traffic & Parking Conditions Section
+    st.markdown("### 📊 Traffic & Parking Conditions")
+    
+    col1, col2 = st.columns([2, 1])
     
     with col1:
-        delta_occ = current_occupancy - 65
-        st.metric("Current Occupancy", f"{current_occupancy}%", delta=f"{delta_occ:+d}%")
-    with col2:
-        delta_spots = available_spots - 70
-        st.metric("Available Spots", available_spots, delta=f"{delta_spots:+d}")
-    # with col3:
-    #     delta_wait = wait_time - 5
-    #     st.metric("Avg Wait Time", f"{wait_time} min", delta=f"{delta_wait:+d} min")
-    # with col4:
-    #     delta_speed = current_speed - 15
-    #     st.metric("Traffic Speed", f"{current_speed} mph", delta=f"{delta_speed:+d} mph")
-    # with col3:
-    #     delta_pred = pred_demand - 45
-    #     st.metric("Next Hour Demand", f"{pred_demand}/hour", delta=f"{delta_pred:+d}")
+        # Metrics row (moved inside col1)
+        metric_col1, metric_col2= st.columns(2)
+        
+        with metric_col1:
+            delta_occ = current_occupancy - 65
+            st.metric(
+                "Current Occupancy",
+                f"{current_occupancy}%",
+                delta=f"{delta_occ:+d}%"
+            )
+        
+        with metric_col2:
+            delta_spots = available_spots - 70
+            st.metric(
+                "Available Spots",
+                available_spots,
+                delta=f"{delta_spots:+d}"
+            )
+        
     
+    with col2:
+        st.info(f"""
+        **🚗 Traffic Context:**  
+        Avg Speed: {current_speed} mph  
+        Route 10: Fast (24 mph) ✅  
+        Routes 7&8: Slow (12 mph) ⚠️
+        
+        *Current: {'Good flow' if current_speed > 15 else 'Congested'}*
+        """)
     # Real-time charts
     col1, col2 = st.columns(2)
     
@@ -1740,8 +1756,8 @@ with tab6:
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #64748b; padding: 20px;'>
-    <p style='margin: 5px 0;'><strong>© 2025 Banff Intelligent Parking System</strong></p>
-    <p style='margin: 5px 0;'>CMPT 3835 Group 6 Project | Enhanced with RAG Chatbot</p>
+    <p>© 2025 Banff Intelligent Parking Guidance System | CMPT 3835 Group 11</p>
+    <p>Parking Predictions Enhanced with Traffic Analysis</p>
     <p style='margin: 5px 0;'>Last Updated: December 9, 2025</p>
 </div>
 """, unsafe_allow_html=True)
