@@ -1328,7 +1328,7 @@ with tab4:
     </style>
     """, unsafe_allow_html=True)
     # Metrics row
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(3)
     
     with col1:
         delta_occ = current_occupancy - 65
@@ -1342,9 +1342,9 @@ with tab4:
     # with col4:
     #     delta_speed = current_speed - 15
     #     st.metric("Traffic Speed", f"{current_speed} mph", delta=f"{delta_speed:+d} mph")
-    with col3:
-        delta_pred = pred_demand - 45
-        st.metric("Next Hour Demand", f"{pred_demand}/hour", delta=f"{delta_pred:+d}")
+    # with col3:
+    #     delta_pred = pred_demand - 45
+    #     st.metric("Next Hour Demand", f"{pred_demand}/hour", delta=f"{delta_pred:+d}")
     
     # Real-time charts
     col1, col2 = st.columns(2)
