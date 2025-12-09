@@ -17,6 +17,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import joblib
 import json
 import warnings
@@ -1189,8 +1190,18 @@ with tab3:
 with tab4:
     st.markdown("## 🚦 Real-time Parking & Traffic Dashboard")
     
-    # Get ACTUAL current time for dynamic updates
-    now = datetime.now()
+    # Get ACTUAL current time in Alberta (Mountain Time Zone)
+    try:
+        alberta_tz = ZoneInfo("America/Edmonton")  # Edmonton, Alberta timezone
+        now = datetime.now(alberta_tz)
+    except:
+        # Fallback if zoneinfo not available
+        from datetime import timezone
+        # Mountain Standard Time is UTC-7, Mountain Daylight Time is UTC-6
+        # Approximate with UTC-7 (MST)
+        mountain_time = timezone(timedelta(hours=-7))
+        now = datetime.now(mountain_time)
+    
     current_hour = now.hour
     current_month = now.month
     current_day = now.strftime("%A")
@@ -1301,7 +1312,7 @@ with tab4:
     season_emoji = "❄️" if current_month in [12, 1, 2] else "🌸" if current_month in [3, 4, 5] else "☀️" if current_month in [6, 7, 8, 9] else "🍂"
     season_name = "Winter (Low Season)" if current_month in [12, 1, 2] else "Spring (Shoulder)" if current_month in [3, 4, 5] else "Summer (Peak Season)" if current_month in [6, 7, 8, 9] else "Fall (Shoulder)"
     
-    st.info(f"**📅 Current Time:** {now.strftime('%I:%M %p')} | **Day:** {current_day} | **Status:** {'Weekend' if is_current_weekend else 'Weekday'} | {season_emoji} **Season:** {season_name}")
+    st.info(f"**📅 Alberta Time:** {now.strftime('%I:%M %p')} | **Day:** {current_day} | **Status:** {'Weekend' if is_current_weekend else 'Weekday'} | {season_emoji} **Season:** {season_name}")
     
     # Metrics row
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -1505,7 +1516,7 @@ with tab4:
             """)
     
     # Auto-refresh indicator
-    st.caption(f"🔄 Last updated: {now.strftime('%I:%M:%S %p')} | Season: {season_name} (×{season_factor:.1f}) | Selected: {selected_lot} | Refresh page for latest data")
+    st.caption(f"🔄 Last updated: {now.strftime('%I:%M:%S %p')} MT (Alberta) | Season: {season_name} (×{season_factor:.1f}) | Selected: {selected_lot} | Refresh page for latest data")
 
 # Tab 5: RAG Chatbot (UNCHANGED)
 with tab5:
