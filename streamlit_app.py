@@ -1323,12 +1323,12 @@ with tab4:
     with col2:
         delta_spots = available_spots - 70
         st.metric("Available Spots", available_spots, delta=f"{delta_spots:+d}")
-    # with col3:
-    #     delta_wait = wait_time - 5
-    #     st.metric("Avg Wait Time", f"{wait_time} min", delta=f"{delta_wait:+d} min")
-    # with col4:
-    #     delta_speed = current_speed - 15
-    #     st.metric("Traffic Speed", f"{current_speed} mph", delta=f"{delta_speed:+d} mph")
+    with col3:
+        delta_wait = wait_time - 5
+        st.metric("Avg Wait Time", f"{wait_time} min", delta=f"{delta_wait:+d} min")
+    with col4:
+        delta_speed = current_speed - 15
+        st.metric("Traffic Speed", f"{current_speed} mph", delta=f"{delta_speed:+d} mph")
     with col5:
         delta_pred = pred_demand - 45
         st.metric("Next Hour Demand", f"{pred_demand}/hour", delta=f"{delta_pred:+d}")
