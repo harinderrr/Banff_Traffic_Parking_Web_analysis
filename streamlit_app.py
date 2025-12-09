@@ -1312,7 +1312,7 @@ with tab4:
     season_emoji = "❄️" if current_month in [12, 1, 2] else "🌸" if current_month in [3, 4, 5] else "☀️" if current_month in [6, 7, 8, 9] else "🍂"
     season_name = "Winter (Low Season)" if current_month in [12, 1, 2] else "Spring (Shoulder)" if current_month in [3, 4, 5] else "Summer (Peak Season)" if current_month in [6, 7, 8, 9] else "Fall (Shoulder)"
     
-    st.info(f"**📅 Alberta Time:** {now.strftime('%I:%M %p')} | **Day:** {current_day} | **Status:** {'Weekend' if is_current_weekend else 'Weekday'} | {season_emoji} **Season:** {season_name}")
+    st.info(f"**📅 Current Time:** {now.strftime('%I:%M %p')} | **Day:** {current_day} | **Status:** {'Weekend' if is_current_weekend else 'Weekday'} | {season_emoji} **Season:** {season_name}")
     
     # Metrics row
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -1323,12 +1323,12 @@ with tab4:
     with col2:
         delta_spots = available_spots - 70
         st.metric("Available Spots", available_spots, delta=f"{delta_spots:+d}")
-    with col3:
-        delta_wait = wait_time - 5
-        st.metric("Avg Wait Time", f"{wait_time} min", delta=f"{delta_wait:+d} min")
-    with col4:
-        delta_speed = current_speed - 15
-        st.metric("Traffic Speed", f"{current_speed} mph", delta=f"{delta_speed:+d} mph")
+    # with col3:
+    #     delta_wait = wait_time - 5
+    #     st.metric("Avg Wait Time", f"{wait_time} min", delta=f"{delta_wait:+d} min")
+    # with col4:
+    #     delta_speed = current_speed - 15
+    #     st.metric("Traffic Speed", f"{current_speed} mph", delta=f"{delta_speed:+d} mph")
     with col5:
         delta_pred = pred_demand - 45
         st.metric("Next Hour Demand", f"{pred_demand}/hour", delta=f"{delta_pred:+d}")
